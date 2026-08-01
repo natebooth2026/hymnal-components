@@ -1,2 +1,2 @@
 # HYMNAL DEVELOPMENT WORKBENCH
-My workbench for Josh's SaaS product Hymnal!
+My workbench for Hymnal, a SaaS product!
