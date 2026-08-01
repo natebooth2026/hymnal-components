@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Users, HeartHandshake, CalendarDays, Database, Wrench } from 'lucide-react';
 import { MEMBERS, GIVING, ATTENDANCE } from './data/big-data';
 import { EVENTS, REGISTRATIONS } from './data/events';
+import { DataGenerator } from './DataGenerator/DataGenerator';
 import {
   SAMPLE_MEMBERS,
   SEAT_CONSUMING_STATUSES,
@@ -88,11 +89,7 @@ export default function App() {
       </section>
 
       <section className="mt-8 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center text-gray-500">
-        <p className="font-medium">Your components render here.</p>
-        <p className="mt-1 text-sm">
-          Build each task in its own folder under <code className="rounded bg-gray-100 px-1">src/</code>, import it
-          above, and replace this box. Start with <code className="rounded bg-gray-100 px-1">specs/TASK_0_data_generator.md</code>.
-        </p>
+        <DataGenerator />
       </section>
     </div>
   );
