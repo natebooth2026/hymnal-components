@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+#member_num, #generate_button {
+    outline: auto;
+    outline-color: black;
+    outline-width: 2px;
+}
+
+#generate_button, .download_button{
+    border-spacing: 15px;
+    color: black;
+    padding: 3px;
+}
+
+#generate_button {
+    background-color: bisque;
+    text-align: center;
+}
+
+.download_button {
+    background-color:aqua;
+    outline: auto;
+    outline-color:cornflowerblue;
+    outline-width: 2px;
+    margin-top: 15px;
+    margin-left: 5px; 
+    margin-right: 5px;
+    text-align: center;
+}
