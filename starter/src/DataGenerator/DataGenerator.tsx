@@ -251,6 +251,12 @@ function Generate({mem_num} : {mem_num : number}) : JSX.Element {
             <button onClick={() => handleDownload(downloadType.MEMBER, MEMBER_DATA)} className="download_button">Download Member CSV</button>
             <button onClick={() => handleDownload(downloadType.GIVING, GIVING_DATA)} className="download_button">Download Giving CSV</button>
             <button onClick={() => handleDownload(downloadType.ATTENDANCE, ATTENDANCE_DATA)} className="download_button">Download Attendance CSV</button>
+            <br />
+            <button onClick={() => {
+                handleDownload(downloadType.MEMBER, MEMBER_DATA);
+                handleDownload(downloadType.GIVING, GIVING_DATA);
+                handleDownload(downloadType.ATTENDANCE, ATTENDANCE_DATA);
+            }} className="download_button">Download ALL CSVs</button>
         </div>
     );
 }
