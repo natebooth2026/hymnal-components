@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CSV_HEADERS } from "../data/sample-data";
-import { subDays, format } from "date-fns";
+import { subDays, format, max } from "date-fns";
 
 const MIN_VAL : number = 5;
 const MAX_VAL : number = 1000;
@@ -64,33 +64,22 @@ function createCSVLines(type : downloadType, data2D : string[][]) : string[] {
     return RESULTS;
 }
 
-//creates the data and downloads CSV file to device
-function handleDownload(type : downloadType, mem_num : number) : void {
-    if(mem_num < MIN_VAL || mem_num > MAX_VAL) return; // JIC error case
+//creates the data and converts to CSV file
+function handleGenerate(type : downloadType, mem_num : number, member_info : string[][] = []) : string[][][] {
+    if(mem_num < MIN_VAL || mem_num > MAX_VAL) return []; // JIC error case
 
     //inital arrays
     const members : string[][] = [];
     const giving : string[][] = [];
     const attendance : string[][] = [];
+    const new_members : string[][] = []; //only used when members are being generated
 
-    //GENERATING DATA
+    //GENERATING LIST-UNIQUE DATA
     switch(type){
         case downloadType.MEMBER:
             //shuffling
             const first_shuffle = first_names.sort(() => Math.random() - 0.5);
             const last_shuffle = last_names.sort(() => Math.random() - 0.5);
-
-            //binding any names with commas to the name via quotes ~adding quotes only once!~
-            for(var i = 0; i < first_shuffle.length; i++){
-                if(first_shuffle[i].includes(',') && !first_shuffle[i].includes('\"')){
-                    first_shuffle[i] = `"${first_shuffle[i]}"`
-                }
-            }
-            for(var i = 0; i < last_shuffle.length; i++){
-                if(last_shuffle[i].includes(',') && !last_shuffle[i].includes('\"')){
-                    last_shuffle[i] = `"${last_shuffle[i]}"`
-                }
-            }
 
             //adding member names if > 40 members requested
             if(first_shuffle.length < mem_num){
@@ -104,9 +93,27 @@ function handleDownload(type : downloadType, mem_num : number) : void {
                 }
             }
 
-            //creating inital members
+            //creating sharable inital member data
             for(var i = 0; i < mem_num; i++){
-                members.push([first_shuffle[i], last_shuffle[i]]);
+                if(first_shuffle[i].includes(',') || last_shuffle[i].includes(',')){
+                    const FULL_NAME = first_shuffle[i] + " " + last_shuffle[i];
+                    new_members.push([`"${FULL_NAME}"`]);
+                } else {
+                    new_members.push([first_shuffle[i] + " " + last_shuffle[i]]);
+                }
+            }
+
+            //creating inital members for members list
+            for(var i = 0; i < mem_num; i++){
+                if(!first_shuffle[i].includes(",") && !last_shuffle[i].includes(",")){ //neither have commas
+                    members.push([first_shuffle[i], last_shuffle[i]]);
+                } else if (!first_shuffle[i].includes(",")){                        //first name has comma(s)
+                    members.push([first_shuffle[i], `\"${last_shuffle[i]}\"`]);
+                } else if (!last_shuffle[i].includes(",")){                         //last name has comma(s)
+                    members.push([`\"${first_shuffle[i]}\"`, last_shuffle[i]]);
+                } else {                                                            //both names have comma(s)
+                    members.push([`\"${first_shuffle[i]}\"`, `\"${last_shuffle[i]}\"`]);
+                }
             }
 
             //EMAIL GENERATION
@@ -121,8 +128,10 @@ function handleDownload(type : downloadType, mem_num : number) : void {
                 if(GENERATE_EMAIL){
                     const emailAddress : string = email_first[i].toLowerCase() + "." + email_last[i].toLowerCase() + "@example.com";
                     members[i].push(emailAddress);
+                    new_members[i].push(emailAddress);
                 } else {
                     members[i].push("");
+                    new_members[i].push("");
                 }
                 
                 //removes (potential) email address parts from arrays
@@ -167,8 +176,17 @@ function handleDownload(type : downloadType, mem_num : number) : void {
             }
             break;
         case downloadType.GIVING:
+            //inserting member names and emails
+            for(var i = 0; i < member_info.length; i++){
+                giving.push([member_info[i][0], member_info[i][1]]);
+            }
             break;
         case downloadType.ATTENDANCE:
+            //inserting member names and emails
+            for(var i = 0; i < member_info.length; i++){
+                attendance.push([member_info[i][0], member_info[i][1]]);
+            }
+
             break;
     }
 
@@ -190,14 +208,28 @@ function handleDownload(type : downloadType, mem_num : number) : void {
         break;
     }
     CSVData.push(results[0], results[1]);
-    
+    if(type == downloadType.MEMBER) return [[CSVData], new_members]; //for use in giving and attendance lists
+    return [[CSVData], []];
+}
+
+function handleDownload(type : downloadType, data : string[]) : void {
     //<a download> & blob
-    const b = new Blob(CSVData, { type: 'text/csv;charset=utf-8;' });
+    const b = new Blob(data, { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(b);
 
     const l = document.createElement("a");
     l.href = url;
-    l.download = "members.csv";
+    switch(type){
+    case downloadType.MEMBER:
+        l.download = "members.csv";
+        break;
+    case downloadType.GIVING:
+        l.download = "giving.csv";
+        break;
+    case downloadType.ATTENDANCE:
+        l.download = "attendance.csv";
+        break;
+    }
     document.body.append(l);
     l.click();
 
@@ -205,13 +237,20 @@ function handleDownload(type : downloadType, mem_num : number) : void {
     URL.revokeObjectURL(url);
 }
 
-//triggers download buttons
-function Download({mem_num} : {mem_num : number}) : JSX.Element {
+//generates data and triggers download buttons
+function Generate({mem_num} : {mem_num : number}) : JSX.Element {
+    //generating all data
+    const MEMBER_GENERATION : string[][][] = handleGenerate(downloadType.MEMBER, mem_num);
+    const [MEMBER_DATA, MEMBER_INFO] : [string[], string[][]] = [MEMBER_GENERATION[0][0], MEMBER_GENERATION[1]];
+    const GIVING_DATA : string[] = handleGenerate(downloadType.GIVING, mem_num, MEMBER_INFO)[0][0];
+    const ATTENDANCE_DATA : string[] = handleGenerate(downloadType.ATTENDANCE, mem_num, MEMBER_INFO)[0][0];
+
+    //creating download buttons
     return (
         <div id="download_buttons">
-            <button onClick={() => handleDownload(downloadType.MEMBER, mem_num)} className="download_button">Download Member CSV</button>
-            <button onClick={() => handleDownload(downloadType.GIVING, mem_num)} className="download_button">Download Giving CSV</button>
-            <button onClick={() => handleDownload(downloadType.ATTENDANCE, mem_num)} className="download_button">Download Attendance CSV</button>
+            <button onClick={() => handleDownload(downloadType.MEMBER, MEMBER_DATA)} className="download_button">Download Member CSV</button>
+            <button onClick={() => handleDownload(downloadType.GIVING, GIVING_DATA)} className="download_button">Download Giving CSV</button>
+            <button onClick={() => handleDownload(downloadType.ATTENDANCE, ATTENDANCE_DATA)} className="download_button">Download Attendance CSV</button>
         </div>
     );
 }
@@ -231,13 +270,13 @@ export function DataGenerator() : JSX.Element {
                 <input type="number" id="member_num" 
                         onChange={(e) => {
                             const NEW_MEM_NUM : number = isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber;
-                            setMemNum(NEW_MEM_NUM);
                             if(NEW_MEM_NUM >= MIN_VAL && NEW_MEM_NUM <= MAX_VAL){
                                 setShowGenerate(true);
-                                setShowDownload(false);
                             } else {
                                 setShowGenerate(false);
                             }
+                            setShowDownload(false);
+                            setMemNum(NEW_MEM_NUM);
                         }} 
                         min={MIN_VAL} max={MAX_VAL} 
                 />
@@ -245,7 +284,7 @@ export function DataGenerator() : JSX.Element {
                 {showGenerate && <button type="submit" id="generate_button">Generate</button>}
                 {!showGenerate && <p>Please enter a number between 5 and 1000.</p>}
             </form>
-            {showDownload && <Download mem_num={memNum}/>}
+            {showDownload && <Generate mem_num={memNum}/>}
         </div>
     );
 }
