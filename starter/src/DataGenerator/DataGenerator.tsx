@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CSV_HEADERS } from "../data/sample-data";
+import { subDays, format } from "date-fns";
 
 const MIN_VAL : number = 5;
 const MAX_VAL : number = 1000;
@@ -11,6 +12,58 @@ const city_names : string[] = ["Akron", "Canton", "Cleveland", "Mentor", "Medina
 
 const enum downloadType {MEMBER, GIVING, ATTENDANCE};
 
+//creates CSV header string and data string
+function createCSVLines(type : downloadType, data2D : string[][]) : string[] {
+    const RESULTS : string[] = [];
+
+    //headers
+    switch(type){
+    case downloadType.MEMBER:
+        var CSVHeaders : string = "";
+        for(var i = 0; i < CSV_HEADERS.members.length - 1; i++){
+            CSVHeaders += CSV_HEADERS.members[i];
+            CSVHeaders += ',';
+        }
+        CSVHeaders += CSV_HEADERS.members[CSV_HEADERS.members.length - 1];
+        CSVHeaders += '\n';
+        RESULTS.push(CSVHeaders);
+        break;
+    case downloadType.GIVING:
+        var CSVHeaders : string = "";
+        for(var i = 0; i < CSV_HEADERS.giving.length - 1; i++){
+            CSVHeaders += CSV_HEADERS.giving[i];
+            CSVHeaders += ',';
+        }
+        CSVHeaders += CSV_HEADERS.giving[CSV_HEADERS.giving.length - 1];
+        CSVHeaders += '\n';
+        RESULTS.push(CSVHeaders);
+        break;
+    case downloadType.ATTENDANCE:
+        var CSVHeaders : string = "";
+        for(var i = 0; i < CSV_HEADERS.attendance.length - 1; i++){
+            CSVHeaders += CSV_HEADERS.attendance[i];
+            CSVHeaders += ',';
+        }
+        CSVHeaders += CSV_HEADERS.attendance[CSV_HEADERS.attendance.length - 1];
+        CSVHeaders += '\n';
+        RESULTS.push(CSVHeaders);
+    }
+
+    //data
+    var CSVDataHolder : string = "";
+    for(var i = 0; i < data2D.length; i++){
+        for(var j = 0; j < data2D[i].length - 1; j++){
+            CSVDataHolder += data2D[i][j];
+            CSVDataHolder += ',';
+        }
+        CSVDataHolder += data2D[i][data2D[i].length - 1];
+        if(i < data2D.length - 1) CSVDataHolder += '\n';
+    }
+    RESULTS.push(CSVDataHolder);
+
+    return RESULTS;
+}
+
 //creates the data and downloads CSV file to device
 function handleDownload(type : downloadType, mem_num : number) : void {
     if(mem_num < MIN_VAL || mem_num > MAX_VAL) return; // JIC error case
@@ -19,38 +72,35 @@ function handleDownload(type : downloadType, mem_num : number) : void {
     const members : string[][] = [];
     const giving : string[][] = [];
     const attendance : string[][] = [];
-    var currentType : downloadType | null = null;
 
-    //generating data and convert to CSV functionality
+    //GENERATING DATA
     switch(type){
         case downloadType.MEMBER:
-            currentType = downloadType.MEMBER;
-
             //shuffling
             const first_shuffle = first_names.sort(() => Math.random() - 0.5);
             const last_shuffle = last_names.sort(() => Math.random() - 0.5);
 
-            //binding any names with commas to the name via quotes
+            //binding any names with commas to the name via quotes ~adding quotes only once!~
             for(var i = 0; i < first_shuffle.length; i++){
-                if(first_shuffle[i].includes(',')){
-                    first_shuffle[i] = `\"${first_shuffle[i]}\"`
+                if(first_shuffle[i].includes(',') && !first_shuffle[i].includes('\"')){
+                    first_shuffle[i] = `"${first_shuffle[i]}"`
                 }
             }
             for(var i = 0; i < last_shuffle.length; i++){
-                if(last_shuffle[i].includes(',')){
-                    last_shuffle[i] = `\"${last_shuffle[i]}\"`
+                if(last_shuffle[i].includes(',') && !last_shuffle[i].includes('\"')){
+                    last_shuffle[i] = `"${last_shuffle[i]}"`
                 }
             }
 
             //adding member names if > 40 members requested
             if(first_shuffle.length < mem_num){
                 for(var i = first_shuffle.length; i < mem_num; i++){
-                    first_shuffle.push(first_shuffle[Math.floor(Math.random() * 100) % first_shuffle.length]);
+                    first_shuffle.push(first_shuffle[Math.floor(Math.random() * (first_shuffle.length - 1))]);
                 }
             }
             if(last_shuffle.length < mem_num){
                 for(var i = last_shuffle.length; i < mem_num; i++){
-                    last_shuffle.push(last_shuffle[Math.floor(Math.random() * 100) % last_shuffle.length]);
+                    last_shuffle.push(last_shuffle[Math.floor(Math.random() * (last_shuffle.length - 1))]);
                 }
             }
 
@@ -67,7 +117,7 @@ function handleDownload(type : downloadType, mem_num : number) : void {
             //crafting and adding emails to each member
             for(var i = 0; i < mem_num; i++){
                 //email address generation, sometimes skipped
-                const GENERATE_EMAIL : boolean = (Math.floor(Math.random() * 100 - 1) % 100) > 15;
+                const GENERATE_EMAIL : boolean = (Math.floor(Math.random() * 99)) > 15;
                 if(GENERATE_EMAIL){
                     const emailAddress : string = email_first[i].toLowerCase() + "." + email_last[i].toLowerCase() + "@example.com";
                     members[i].push(emailAddress);
@@ -80,14 +130,10 @@ function handleDownload(type : downloadType, mem_num : number) : void {
                 email_last.slice(0, i);
             }
 
-            //grabbing current date
-            const CURRENT_DATE : Date = new Date();
-            const CURRENT_YEAR : string = String(CURRENT_DATE.getFullYear());
-
             //adding random phone numbers, cities, states, active statuses, and active since dates
             for(var i = 0; i < mem_num; i++){
                 //phone number
-                const RAND_NUM : number = Math.floor(Math.random() * 10000 - 1) % 10000;
+                const RAND_NUM : number = Math.floor(Math.random() * 9999);
                 const RAND_NUM_STR : string = String(RAND_NUM);
                 var phone_num : string = "330-555-";
                 if (RAND_NUM < 10){
@@ -102,85 +148,61 @@ function handleDownload(type : downloadType, mem_num : number) : void {
                 members[i].push(phone_num);
 
                 //city & state (set Ohio to be state by default due to Ohio city names being in provided data at start of program)
-                members[i].push(city_names[Math.floor(Math.random() * 100) % city_names.length],
+                members[i].push(city_names[Math.floor(Math.random() * (city_names.length - 1))],
                                 /*state_names[Math.floor(Math.random() * 100) % state_names.length]*/ "Ohio");
 
                 //active status
-                const IS_ACTIVE : boolean = (Math.floor(Math.random() * 100 - 1) % 100) > 18;
-                if(IS_ACTIVE){
+                const ACTIVE_MODIFER : number = Math.floor(Math.random() * 99);
+                if(ACTIVE_MODIFER > 18){            // ~72% chance
                     members[i].push("active");
-                } else {
+                } else if (ACTIVE_MODIFER > 4) {    // ~14% chance
                     members[i].push("inactive");
+                } else {                            // ~4% chance
+                    members[i].push("visitor");
                 }
 
-                //random active since date (WARNING! May change with calendar systems lol)
-                const RAND_YEAR : number = (Number(CURRENT_YEAR) - 8) + (Math.floor(Math.random() * 100) % 8 + 1);
-                const RAND_MONTH_IDX : number = Math.floor(Math.random() * 100) % 12 + 1;
-                const IS_FEBRUARY : boolean = RAND_MONTH_IDX == 2;
-                const IS_30_DAY : boolean = RAND_MONTH_IDX == 4 || RAND_MONTH_IDX == 6 || RAND_MONTH_IDX == 9 || RAND_MONTH_IDX == 11;
-
-                if(IS_FEBRUARY){ //28 or 29 days
-                    //leap year check based on Gregorian calendar rules
-                    const IS_LEAP_YEAR : boolean = RAND_YEAR % 4 == 0 && (RAND_YEAR % 100 != 0 || RAND_YEAR % 400 == 0);
-                    if(IS_LEAP_YEAR){
-                        members[i].push(String(RAND_YEAR) + "-" + (RAND_MONTH_IDX >= 10 ? String(RAND_MONTH_IDX) : "0" + String(RAND_MONTH_IDX)) + "-" + String(Math.floor(Math.random() * 100) % 29));
-                    } else {
-                        members[i].push(String(RAND_YEAR) + "-" + (RAND_MONTH_IDX >= 10 ? String(RAND_MONTH_IDX) : "0" + String(RAND_MONTH_IDX)) + "-" + String(Math.floor(Math.random() * 100) % 28));
-                    }
-                } else if (IS_30_DAY){ //30 days
-                    members[i].push(String(RAND_YEAR) + "-" + (RAND_MONTH_IDX >= 10 ? String(RAND_MONTH_IDX) : "0" + String(RAND_MONTH_IDX)) + "-" + String(Math.floor(Math.random() * 100) % 30));
-                } else { //31 days
-                    members[i].push(String(RAND_YEAR) + "-" + (RAND_MONTH_IDX >= 10 ? String(RAND_MONTH_IDX) : "0" + String(RAND_MONTH_IDX)) + "-" + String(Math.floor(Math.random() * 100) % 31));
-                }
+                //random active since date
+                const DAY_MODIFIER : number = Math.floor(Math.random() * 2900);
+                members[i].push(format(subDays(new Date(), DAY_MODIFIER), 'yyyy-MM-dd'));
             }
-
-            //CONVERSTION TO CSV
-            var CSVData : string[] = [];
-            CSVData.push('\uFEFF'); //excel formatting header 
-
-            //headers
-            var CSVHeaders : string = "";
-            for(var i = 0; i < CSV_HEADERS.members.length - 1; i++){
-                CSVHeaders += CSV_HEADERS.members[i];
-                CSVHeaders += ',';
-            }
-            CSVHeaders += CSV_HEADERS.members[CSV_HEADERS.members.length - 1];
-            CSVHeaders += '\n';
-            CSVData.push(CSVHeaders);
-
-            //member data
-            var CSVDataHolder : string = "";
-            for(var i = 0; i < members.length; i++){
-                for(var j = 0; j < members[i].length - 1; j++){
-                    CSVDataHolder += members[i][j];
-                    CSVDataHolder += ',';
-                }
-                CSVDataHolder += members[i][members[i].length - 1];
-                if(i < members.length - 1) CSVDataHolder += '\n';
-                CSVData.push(CSVDataHolder);
-                CSVDataHolder = "";
-            }
-
-            //<a download> & blob
-            const b = new Blob(CSVData, { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(b);
-
-            const l = document.createElement("a");
-            l.href = url;
-            l.download = "members.csv";
-            document.body.append(l);
-            l.click();
-
-            document.body.removeChild(l);
-            URL.revokeObjectURL(url);
             break;
         case downloadType.GIVING:
-            currentType = downloadType.GIVING;
             break;
         case downloadType.ATTENDANCE:
-            currentType = downloadType.ATTENDANCE;
             break;
     }
+
+    //CONVERSTION TO CSV
+    //headers
+    var CSVData : string[] = [];
+    CSVData.push('\uFEFF'); //excel formatting header 
+    var results : string[] = [];
+
+    switch(type){
+    case downloadType.MEMBER:
+        results = createCSVLines(downloadType.MEMBER, members);
+        break;
+    case downloadType.GIVING:
+        results = createCSVLines(downloadType.GIVING, giving);
+        break;
+    case downloadType.ATTENDANCE:
+        results = createCSVLines(downloadType.ATTENDANCE, attendance);
+        break;
+    }
+    CSVData.push(results[0], results[1]);
+    
+    //<a download> & blob
+    const b = new Blob(CSVData, { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(b);
+
+    const l = document.createElement("a");
+    l.href = url;
+    l.download = "members.csv";
+    document.body.append(l);
+    l.click();
+
+    document.body.removeChild(l);
+    URL.revokeObjectURL(url);
 }
 
 //triggers download buttons
