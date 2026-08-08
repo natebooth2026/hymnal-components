@@ -2,30 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-#member_num, #generate_button {
+#member_num, .generate_button, .restart_button, table, tr, th, td {
     outline: auto;
     outline-color: black;
     outline-width: 2px;
 }
 
-#generate_button, .download_button{
+.generate_button, .download_button, .restart_button, th, td{
     border-spacing: 15px;
     color: black;
+    text-align: center;
+}
+
+.generate_button, .download_button, .restart_button {
     padding: 3px;
 }
 
-#generate_button {
+.generate_button, .restart_button {
     background-color: bisque;
-    text-align: center;
 }
 
 .download_button {
     background-color:aqua;
     outline: auto;
-    outline-color:cornflowerblue;
+    outline-color:black;
     outline-width: 2px;
     margin-top: 15px;
     margin-left: 5px; 
     margin-right: 5px;
     text-align: center;
+}
+
+table, th, td {
+    margin-left: auto;
+    margin-right: auto;
+    width:auto;
+}
+
+#preview-header {
+    color: black;
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CSV_HEADERS } from "../data/sample-data";
-import { subDays, format, max, addDays } from "date-fns";
+import { subDays, format, addDays } from "date-fns";
 
 const MIN_VAL : number = 5;
 const MAX_VAL : number = 1000;
@@ -11,7 +11,7 @@ const city_names : string[] = ["Akron", "Canton", "Cleveland", "Mentor", "Medina
 //const state_names : string[] = ["Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"];
 const service_types : string[] = ["Wednesday Night", "Sunday Morning", "Sunday Evening"];
 
-const enum downloadType {MEMBER, GIVING, ATTENDANCE};
+const enum downloadType {MEMBER, GIVING, ATTENDANCE, NONE, ALL};
 
 //creates CSV header string and data string
 function createCSVLines(type : downloadType, data2D : string[][]) : string[] {
@@ -253,7 +253,8 @@ function handleGenerate(type : downloadType, mem_num : number, member_info : str
     return [[CSVData], []];
 }
 
-function handleDownload(type : downloadType, data : string[]) : void {
+//handles all <a download> + blob logic, returns downloadType for preview table handling
+function handleDownload(type : downloadType, data : string[]) : downloadType {
     //<a download> & blob
     const b = new Blob(data, { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(b);
@@ -276,6 +277,51 @@ function handleDownload(type : downloadType, data : string[]) : void {
 
     document.body.removeChild(l);
     URL.revokeObjectURL(url);
+
+    return type;
+}
+
+//handles preview table generation
+function PreviewTables({data} : {data : string[][]}) : JSX.Element {
+    var HTMLHolder : string = "";
+
+    for(var i = 0; i < data.length; i++){ 
+        HTMLHolder += `<table className = \"preview-table\" id = \"preview-table-${i}\">
+                       <thead className = \"preview-table-header\" id = \"preview-table-${i}-header\">
+                       <tr className = \"preview-table-header-row\" id = \"preview-table-${i}-header\">`;
+
+        const HEADERS : string[] = data[i][1].split(","); //starts at 1 to ignore Excel formatting header
+
+        for(var j = 0; j < HEADERS.length; j++){
+            HTMLHolder += `<th className = \"preview-table-header-row-element\" id = \"preview-table-${i}-header-row-element-${j}\">${HEADERS[j]}</th>`
+        }
+        HTMLHolder += `</tr></thead><tbody className = \"preview-table-body\" id = \"preview-table-${i}-body\">`
+
+        //split up of data line
+        const DATA_PER_LINE : string[] = data[i][2].split("\n");
+        var DATA : string[][] = [];
+        for(var j = 0; j < DATA_PER_LINE.length; j++){
+            DATA.push(DATA_PER_LINE[j].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g));
+        }
+
+        const SMALLER : number = DATA.length < 10 ? DATA.length : 10;
+        console.log(SMALLER);
+        for(var j = 0; j < SMALLER; j++){
+            HTMLHolder += `<tr className = \"preview-table-body-row\" id = \"preview-table-${i}-body-row-${j}\">`
+            for(var k = 0; k < DATA[j].length; k++){
+                if(DATA[j][k].includes("\"")) DATA[j][k] = String(DATA[j][k].match(/[^"]+/)); //removes quotation marks from preview data
+                HTMLHolder += `<td className = \"preview-table-body-row-element\" id = \"preview-table-${i}-body-row-${j}-element-${k}\">${DATA[j][k]}</td>`
+            }
+            HTMLHolder += "</tr>";
+        }
+
+        HTMLHolder += "</tbody></table><br />";
+    }
+
+    return (<div id = "preview_tables">
+        <p id="preview-header">Data Preview (up to 10 entries per table)</p>
+        <div id="preview-tables-container" dangerouslySetInnerHTML={{__html : HTMLHolder}}/>
+    </div>)
 }
 
 //generates data and triggers download buttons
@@ -298,17 +344,28 @@ function Generate({mem_num} : {mem_num : number}) : JSX.Element {
                 handleDownload(downloadType.GIVING, GIVING_DATA);
                 handleDownload(downloadType.ATTENDANCE, ATTENDANCE_DATA);
             }} className="download_button">Download ALL CSVs</button>
+            <br /> <br />
+            <button className="restart_button" onClick={() => window.location.href = `?members=${mem_num}`}>Restart</button>
+            <br /> <br />
+            <PreviewTables data={[MEMBER_DATA, GIVING_DATA, ATTENDANCE_DATA]}/>
         </div>
     );
 }
 
 //controls front-end of DataGenerator
 export function DataGenerator() : JSX.Element {
-    //generation states
-    const [memNum, setMemNum] = useState(0);
-    const [showGenerate, setShowGenerate] = useState(false); //to show generate button
-    const [showDownload, setShowDownload] = useState(false); //to show download buttons
+    //URL parameter handling
+    const URLParam : URLSearchParams = new URLSearchParams(window.location.search);
+    const mem_param : string | null = URLParam.get('members');
 
+    //GENERATION STATES
+    /*memNum keeps track of what the user inputted or parameter inputted as the number of members to generate
+      showGenerate // showDownload are triggers for button visibility*/
+    const [memNum, setMemNum] = (Number(mem_param) >= MIN_VAL && Number(mem_param) <= MAX_VAL) ? useState(Number(mem_param)) : useState(0);
+    const [showGenerate, setShowGenerate] = (Number(mem_param) >= MIN_VAL && Number(mem_param) <= MAX_VAL) ? useState(true) : useState(false);
+    const [showDownload, setShowDownload] = useState(false);
+
+    //HTML
     return (
         <div id="data_generator">
             <h1>How many members?</h1>
@@ -325,10 +382,10 @@ export function DataGenerator() : JSX.Element {
                             setShowDownload(false);
                             setMemNum(NEW_MEM_NUM);
                         }} 
-                        min={MIN_VAL} max={MAX_VAL} 
+                        min={MIN_VAL} max={MAX_VAL} defaultValue={Number(mem_param)}
                 />
                 <br /> <br />
-                {showGenerate && <button type="submit" id="generate_button">Generate</button>}
+                {showGenerate && !showDownload && <button type="submit" className="generate_button">Generate</button>}
                 {!showGenerate && <p>Please enter a number between 5 and 1000.</p>}
             </form>
             {showDownload && <Generate mem_num={memNum}/>}
