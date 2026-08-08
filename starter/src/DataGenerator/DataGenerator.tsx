@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CSV_HEADERS } from "../data/sample-data";
-import { subDays, format, max } from "date-fns";
+import { subDays, format, max, addDays } from "date-fns";
 
 const MIN_VAL : number = 5;
 const MAX_VAL : number = 1000;
@@ -9,6 +9,7 @@ const first_names : string[] = ["Liam", "Olivia", "Noah", "Emma", "Elijah", "Cha
 const last_names : string[] = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson, Jr.", "Walker", "Young", "Allen", "King", "Wright", "Scott", "Green", "Baker", "Adams", "O'Brien"];
 const city_names : string[] = ["Akron", "Canton", "Cleveland", "Mentor", "Medina", "Wooster", "Kent", "Stow", "Hudson", "Twinsburg", "Aurora", "Solon", "Strongsville", "Brunswick", "Parma", "Lakewood", "Rocky River", "Westlake", "North Olmsted", "Berea", "Elyria", "Lorain", "Avon", "Avon Lake", "Sandusky", "Willoughby", "Painesville", "Chardon", "Ravenna", "Alliance", "Massillon", "North Canton", "Barberton", "Cuyahoga Falls", "Green", "Tallmadge", "Wadsworth", "Boardman", "Youngstown", "Ashtabula"];
 //const state_names : string[] = ["Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"];
+const service_types : string[] = ["Wednesday Night", "Sunday Morning", "Sunday Evening"];
 
 const enum downloadType {MEMBER, GIVING, ATTENDANCE};
 
@@ -187,6 +188,46 @@ function handleGenerate(type : downloadType, mem_num : number, member_info : str
                 attendance.push([member_info[i][0], member_info[i][1]]);
             }
 
+            //picking random Wednesday or Sunday and then a service type
+            for(var i = 0; i < attendance.length; i++){
+                const DAY_MODIFIER : number = Math.floor(Math.random() * 2900); //random day
+                const TODAY : Date = new Date();
+                var day : Date = subDays(TODAY, DAY_MODIFIER);
+                if(day.getDay() != 0 && day.getDay() != 3){ //not Wednesday nor Sunday
+                    //ensuring on Wednesday or Sunday
+                    const WED_OR_SUN : number = Math.floor(Math.random() * 3); //0 = Wednesday, 1-2 = Sunday
+                    if(WED_OR_SUN == 0){
+                        day = subDays(day, day.getDay() - 3)
+                    } else {
+                        day = subDays(day, day.getDay());
+                    }
+
+                    //bound check
+                    if(day < (subDays(TODAY, 2900))){
+                        day = addDays(day, 7);
+                    } else if (day > TODAY){
+                        day = subDays(day, 7);
+                    }
+                } 
+                attendance[i].push(format(day, 'yyyy-MM-dd'));
+
+                //adding service type
+                if(day.getDay() == 3) attendance[i].push(service_types[0]);
+                else {
+                    //random between morning/evening Sunday service (extra weight to morning)
+                    const RAND_SERVICE = Math.floor(Math.random() * 3);
+                    if(RAND_SERVICE < 2){
+                        attendance[i].push(service_types[1]);
+                    } else {
+                        attendance[i].push(service_types[2]);
+                    }
+                }
+
+                // //DEBUG--ensuring Sunday and Wednesday dates only
+                // if(day.getDay() == 0) attendance[i].push("SUNDAY");
+                // else if (day.getDay() == 3) attendance[i].push("WEDNESDAY");
+                // else attendance[i].push("ERROR");
+            }
             break;
     }
 
